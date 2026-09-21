@@ -1,33 +1,24 @@
+from datetime import datetime
+
 from airflow import DAG
 from airflow.operators.python import PythonOperator
 from airflow.providers.amazon.aws.hooks.s3 import S3Hook
 
-from datetime import datetime
+from config import AWS_CONN_ID, DAG_START_DATE, LOCAL_FILE, S3_BUCKET, S3_FILE
 
-
-aws_conn_id = 's3_connection'
-bucket_name = 'sprint6'
-file_name = 'group_log.csv'
-local_path = '/data/group_log.csv'
 
 def load_group_log_from_s3():
-    s3_hook = S3Hook(aws_conn_id=aws_conn_id)
-
-    s3_hook.get_key(
-        key=file_name,
-        bucket_name=bucket_name
-    ).download_file(local_path)
+    """Download the source CSV from S3 to the local Airflow filesystem."""
+    s3_hook = S3Hook(aws_conn_id=AWS_CONN_ID)
+    s3_hook.get_key(key=S3_FILE, bucket_name=S3_BUCKET).download_file(LOCAL_FILE)
 
 
-with DAG( 
-    dag_id='load_group_log_from_s3',
-    start_date=datetime(2022, 7, 13),
+with DAG(
+    dag_id="load_group_log_from_s3",
+    start_date=datetime.fromisoformat(DAG_START_DATE),
     catchup=False,
 ) as dag:
-    
     download_group_log = PythonOperator(
-        task_id='dowload_group_log',
-        python_callable=load_group_log_from_s3
+        task_id="download_group_log",
+        python_callable=load_group_log_from_s3,
     )
-
-    download_group_log

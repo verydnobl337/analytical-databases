@@ -1,34 +1,37 @@
+from datetime import datetime
+
 from airflow import DAG
 from airflow.operators.python import PythonOperator
 from airflow.providers.vertica.hooks.vertica import VerticaHook
 
-from datetime import datetime
+from config import DAG_START_DATE, LOCAL_FILE, STAGING_TABLE, VERTICA_CONN_ID
 
 
-def load_group_log_in_stg(): 
-    hook = VerticaHook(vertica_conn_id='vertica_conn')
-
+def load_group_log_in_stg():
+    """Load the downloaded CSV file into the Vertica staging table."""
+    hook = VerticaHook(vertica_conn_id=VERTICA_CONN_ID)
     conn = hook.get_conn()
     cursor = conn.cursor()
 
-    cursor.execute("""
-                COPY VT26052617E774__STAGING.group_log
-                FROM LOCAL '/data/group_log.csv'
-                DELIMITER ','
-                """)
-    
-    cursor.close()
-    conn.close()
+    try:
+        cursor.execute(
+            f"""
+            COPY {STAGING_TABLE}
+            FROM LOCAL '{LOCAL_FILE}'
+            DELIMITER ','
+            """
+        )
+    finally:
+        cursor.close()
+        conn.close()
+
 
 with DAG(
-    dag_id='load_group_log_in_stg',
-    start_date=datetime(2022, 7, 13),
-    catchup=False
+    dag_id="load_group_log_in_stg",
+    start_date=datetime.fromisoformat(DAG_START_DATE),
+    catchup=False,
 ) as dag:
-    
-    download_group_log_in_stg = PythonOperator(
-        task_id='download_group_log_in_st',
-        python_callable=load_group_log_in_stg
+    load_group_log = PythonOperator(
+        task_id="load_group_log_in_stg",
+        python_callable=load_group_log_in_stg,
     )
-
-    download_group_log_in_stg
